@@ -7,32 +7,32 @@
 -- 3. How do customer segments break down across RFM (Recency, Frequency, Monetary)?
 -- 4. Which customer segment generates the largest share of marketplace revenue?
 --
--- SQL Concepts Demonstrated:
--- - Grouping by natural customer identifier: customer_unique_id (NOT customer_id)
--- - Frequency computed via COUNT(DISTINCT o.order_id) to avoid item line duplication
--- - Julian day date arithmetic for recency: julianday('2018-10-18') - julianday(...)
--- - Window Functions: NTILE(5) for quintile distribution scoring
--- - Multi-tier CASE statement for business customer segmentation
+-- Population & Reconciliation Notes:
+-- - The entire population of 96,096 distinct real-world buyers (customer_unique_id)
+--   is accounted for using a LEFT JOIN on fact_order_items.
+-- - 676 customers placed orders that were canceled or unavailable before items were
+--   assigned (zero line items in fact_order_items). They are categorized under
+--   'Unfulfilled / Canceled' (0.00 BRL monetary spend).
+-- - Monetary value is defined as total item sales price (excluding freight).
+-- - Frequency is computed using COUNT(DISTINCT o.order_id) to reflect distinct orders.
+-- - Recency is calculated relative to baseline date '2018-10-18' (1 day post dataset max).
 -- =====================================================================
 
 WITH customer_order_summary AS (
-    -- Pre-aggregate to customer_unique_id grain
-    -- Monetary is defined as total item sales revenue (excluding freight)
-    -- Frequency is distinct orders placed
+    -- Pre-aggregate to customer_unique_id grain using LEFT JOIN to retain 100% of customers
     SELECT
         c.customer_unique_id,
         MAX(o.order_purchase_timestamp) AS last_purchase_timestamp,
         COUNT(DISTINCT o.order_id) AS order_frequency,
-        ROUND(SUM(i.price), 2) AS total_monetary_spend,
-        ROUND(AVG(i.price), 2) AS avg_item_spend
+        ROUND(COALESCE(SUM(i.price), 0.0), 2) AS total_monetary_spend,
+        ROUND(COALESCE(AVG(i.price), 0.0), 2) AS avg_item_spend
     FROM dim_customers c
     JOIN fact_orders o ON c.customer_id = o.customer_id
-    JOIN fact_order_items i ON o.order_id = i.order_id
+    LEFT JOIN fact_order_items i ON o.order_id = i.order_id
     GROUP BY c.customer_unique_id
 ),
 rfm_raw AS (
     -- Calculate Recency in days relative to baseline reference date '2018-10-18'
-    -- (1 day after the latest purchase recorded in the Olist dataset)
     SELECT
         customer_unique_id,
         CAST(julianday('2018-10-18') - julianday(last_purchase_timestamp) AS INTEGER) AS recency_days,
@@ -41,10 +41,10 @@ rfm_raw AS (
     FROM customer_order_summary
 ),
 rfm_scored AS (
-    -- Assign R, F, M scores from 1 (worst) to 5 (best)
+    -- Assign R, F, M scores
     -- Recency: fewer days = more recent = higher score (NTILE 5 descending)
-    -- Monetary: higher spend = higher score (NTILE 5 ascending)
-    -- Frequency: ~97% of buyers ordered once, so discrete scoring reflects true repeat behavior
+    -- Monetary: NTILE 5 ascending for purchasing cohort; 0 for zero-spend cohort
+    -- Frequency: ~97% order once, so discrete scoring reflects true repeat tiers
     SELECT
         customer_unique_id,
         recency_days,
@@ -52,16 +52,23 @@ rfm_scored AS (
         total_monetary_spend,
         NTILE(5) OVER (ORDER BY recency_days DESC) AS r_score,
         CASE 
+            WHEN total_monetary_spend = 0.0 THEN 0
             WHEN order_frequency = 1 THEN 1
             WHEN order_frequency = 2 THEN 3
             WHEN order_frequency = 3 THEN 4
             ELSE 5
         END AS f_score,
-        NTILE(5) OVER (ORDER BY total_monetary_spend ASC) AS m_score
+        CASE
+            WHEN total_monetary_spend = 0.0 THEN 0
+            ELSE NTILE(5) OVER (
+                PARTITION BY (CASE WHEN total_monetary_spend > 0 THEN 1 ELSE 0 END) 
+                ORDER BY total_monetary_spend ASC
+            )
+        END AS m_score
     FROM rfm_raw
 ),
 rfm_segmented AS (
-    -- Combine scores into strategic behavioral segments
+    -- Strategic behavioral customer segments across all 96,096 distinct customers
     SELECT
         customer_unique_id,
         recency_days,
@@ -72,6 +79,7 @@ rfm_segmented AS (
         m_score,
         (r_score * 100 + f_score * 10 + m_score) AS rfm_code,
         CASE
+            WHEN total_monetary_spend = 0.0 THEN 'Unfulfilled / Canceled'
             WHEN r_score >= 4 AND f_score >= 3 THEN 'Champions & Loyal'
             WHEN r_score >= 4 AND f_score = 1 THEN 'New & Promising'
             WHEN r_score = 3 AND f_score >= 3 THEN 'Potential Loyalists'
@@ -82,7 +90,6 @@ rfm_segmented AS (
         END AS customer_segment
     FROM rfm_scored
 )
--- Aggregate summary by customer segment
 SELECT
     customer_segment,
     COUNT(*) AS total_customers,
@@ -91,7 +98,7 @@ SELECT
     ROUND(AVG(order_frequency), 2) AS avg_orders_per_customer,
     ROUND(SUM(total_monetary_spend), 2) AS total_segment_revenue,
     ROUND(
-        SUM(total_monetary_spend) * 100.0 / (SELECT SUM(total_monetary_spend) FROM rfm_segmented),
+        SUM(total_monetary_spend) * 100.0 / NULLIF((SELECT SUM(total_monetary_spend) FROM rfm_segmented), 0),
         2
     ) AS revenue_share_pct,
     ROUND(AVG(total_monetary_spend), 2) AS avg_spend_per_customer

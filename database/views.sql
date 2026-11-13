@@ -111,6 +111,7 @@ FROM category_totals;
 -- ---------------------------------------------------------------------
 -- 3. View: Customer RFM Scoring & Segmentation
 -- ---------------------------------------------------------------------
+-- Captures 100% of real-world customers (96,096 distinct customer_unique_id)
 DROP VIEW IF EXISTS view_customer_rfm;
 CREATE VIEW view_customer_rfm AS
 WITH customer_order_summary AS (
@@ -118,11 +119,11 @@ WITH customer_order_summary AS (
         c.customer_unique_id,
         MAX(o.order_purchase_timestamp) AS last_purchase_timestamp,
         COUNT(DISTINCT o.order_id) AS order_frequency,
-        ROUND(SUM(i.price), 2) AS total_monetary_spend,
-        ROUND(AVG(i.price), 2) AS avg_item_spend
+        ROUND(COALESCE(SUM(i.price), 0.0), 2) AS total_monetary_spend,
+        ROUND(COALESCE(AVG(i.price), 0.0), 2) AS avg_item_spend
     FROM dim_customers c
     JOIN fact_orders o ON c.customer_id = o.customer_id
-    JOIN fact_order_items i ON o.order_id = i.order_id
+    LEFT JOIN fact_order_items i ON o.order_id = i.order_id
     GROUP BY c.customer_unique_id
 ),
 rfm_raw AS (
@@ -141,12 +142,19 @@ rfm_scored AS (
         total_monetary_spend,
         NTILE(5) OVER (ORDER BY recency_days DESC) AS r_score,
         CASE 
+            WHEN total_monetary_spend = 0.0 THEN 0
             WHEN order_frequency = 1 THEN 1
             WHEN order_frequency = 2 THEN 3
             WHEN order_frequency = 3 THEN 4
             ELSE 5
         END AS f_score,
-        NTILE(5) OVER (ORDER BY total_monetary_spend ASC) AS m_score
+        CASE
+            WHEN total_monetary_spend = 0.0 THEN 0
+            ELSE NTILE(5) OVER (
+                PARTITION BY (CASE WHEN total_monetary_spend > 0 THEN 1 ELSE 0 END) 
+                ORDER BY total_monetary_spend ASC
+            )
+        END AS m_score
     FROM rfm_raw
 )
 SELECT
@@ -159,6 +167,7 @@ SELECT
     m_score,
     (r_score * 100 + f_score * 10 + m_score) AS rfm_code,
     CASE
+        WHEN total_monetary_spend = 0.0 THEN 'Unfulfilled / Canceled'
         WHEN r_score >= 4 AND f_score >= 3 THEN 'Champions & Loyal'
         WHEN r_score >= 4 AND f_score = 1 THEN 'New & Promising'
         WHEN r_score = 3 AND f_score >= 3 THEN 'Potential Loyalists'
