@@ -46,6 +46,12 @@ venv.bak/
 *.db-wal
 *.db-shm
 
+# Archives and compressed files (never commit)
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
 # Large Raw and Processed Datasets (keep folder structures via .gitkeep)
 data/raw/*
 !data/raw/.gitkeep
