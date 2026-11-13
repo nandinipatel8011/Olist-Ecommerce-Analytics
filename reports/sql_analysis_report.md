@@ -60,8 +60,8 @@ To prevent commercial ambiguity, revenue metrics are explicitly separated:
 
 1. **Item Product Revenue** = $\sum \text{price}$ from `fact_order_items` = **13,591,643.70 BRL** (Pure merchandise value).
 2. **Freight Revenue Collected** = $\sum \text{freight\_value}$ from `fact_order_items` = **2,251,909.54 BRL** (Customer shipping charges).
-3. **Freight-Inclusive Order Value (Gross Merchandise Value / GMV)** = $\sum (\text{price} + \text{freight\_value})$ = **15,843,553.24 BRL** (Total customer invoice amount).
-4. **Total Customer Payments Processed** = $\sum \text{payment\_value}$ from `fact_order_payments` = **16,008,864.74 BRL** (Includes minor payment gateway interest and multi-voucher adjustments).
+3. **Freight-Inclusive Order Value** = $\sum (\text{price} + \text{freight\_value})$ = **15,843,553.24 BRL** (Total customer invoice amount).
+4. **Total Recorded Payment Value** = $\sum \text{payment\_value}$ from `fact_order_payments` = **16,008,864.74 BRL**. (The difference between recorded payment value of 16,008,864.74 BRL and freight-inclusive order value of 15,843,553.24 BRL is 165,311.50 BRL; this numerical variance is documented directly without assuming unverified causes).
 
 > [!NOTE]
 > **No Profit Implied**: These figures represent top-line gross revenues. Because the public Olist dataset does not record merchant wholesale acquisition costs (Cost of Goods Sold / COGS) or platform operating overhead, **no profit, gross margin, or net income metric is calculated or implied**.

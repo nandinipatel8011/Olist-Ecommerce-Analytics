@@ -114,9 +114,10 @@ To ensure 100% data integrity across the platform:
 1. **Automated Python-vs-SQL Reconciliation**:
    - `tests/reconcile_metrics.py` programmatically runs identical aggregations in Pandas and SQLite.
    - Asserts zero delta on:
-     - Total Gross Merchandise Value ($\sum \text{price}$)
+     - Total Item Product Revenue ($\sum \text{price}$)
      - Total Freight Amount ($\sum \text{freight\_value}$)
-     - Total Payments ($\sum \text{payment\_value}$)
+     - Freight-Inclusive Order Value ($\sum (\text{price} + \text{freight\_value})$)
+     - Total Recorded Payment Value ($\sum \text{payment\_value}$)
      - Total Distinct Orders ($\text{COUNT(DISTINCT order\_id)}$)
      - Total Unique Customers ($\text{COUNT(DISTINCT customer\_unique\_id)}$)
 2. **Power BI Manual Audit Checklist**:
