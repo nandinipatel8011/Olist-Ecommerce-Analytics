@@ -108,11 +108,11 @@ To ensure complete consistency across all project documentation and analytical r
    - **Freight-Inclusive Order Value**: **1,179,143.77 BRL** (+53.27% MoM from 769,312.37 BRL in October 2017).
 3. **Payment Ledger Reconciliation (`fact_order_payments`)**:
    - **Total Recorded Payment Value**: **1,194,882.80 BRL** across 7,863 payment transactions (+53.25% MoM from 779,677.88 BRL in October 2017).
-   - **Payment vs. Order Value Variance**: The difference between recorded payment value (1,194,882.80 BRL) and freight-inclusive order value (1,179,143.77 BRL) is **15,739.03 BRL** (+1.33%). This variance reflects installment financing adjustments, customer payment fees, and split tender transactions, consistent with the platform-wide payment vs. order value difference of 165,311.50 BRL.
+   - **Observed Payment vs. Order Value Variance**: The difference between Total Recorded Payment Value (1,194,882.80 BRL) and Freight-Inclusive Order Value (1,179,143.77 BRL) for November 2017 is **15,739.03 BRL**. This numerical difference is noted neutrally as an observed variance between the payment ledger and order item records; its exact cause has not been established from the available dataset (consistent with the documentation of the overall platform-wide variance of 165,311.50 BRL in Section 2.2).
 4. **Resolution of Earlier Metric Discrepancy**:
    - An earlier Phase 5 documentation draft informally cited "1,194,882.80 BRL" and "53.86% MoM growth" as peak monthly revenue.
    - Audit confirms that **1,194,882.80 BRL is the Total Recorded Payment Value**, whereas the actual **Freight-Inclusive Order Value is 1,179,143.77 BRL** with an exact **+53.27% MoM growth rate** (calculated via `01_monthly_sales_trends.sql` and `view_monthly_sales`).
-   - The earlier 53.86% figure was an unverified manual approximation; the verified rate from SQLite is strictly **+53.27%** for freight-inclusive order value (and **+52.10%** for item product revenue).
+   - The earlier 53.86% figure is unsupported by the underlying SQL calculations; the verified rate from SQLite is strictly **+53.27%** for freight-inclusive order value (and **+52.10%** for item product revenue).
 
 ---
 
